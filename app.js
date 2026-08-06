@@ -42,6 +42,16 @@
     } catch { return []; }
   }
   function validRecord(record) { return record && Number.isFinite(Number(record.value)) && record.date && !Number.isNaN(new Date(record.date).getTime()); }
+  function normalizeRecords(candidate) {
+    const unique = new Map();
+    (Array.isArray(candidate) ? candidate : []).filter(validRecord).forEach(record => unique.set(record.id || uid(), record));
+    return [...unique.values()].sort(byDateDesc);
+  }
+  function mergeRecords(...collections) {
+    const merged = new Map();
+    collections.forEach(collection => normalizeRecords(collection).forEach(record => merged.set(record.id, record)));
+    return [...merged.values()].sort(byDateDesc);
+  }
   function openDatabase() {
     return new Promise((resolve, reject) => {
       if (!('indexedDB' in window)) { reject(new Error('IndexedDB unavailable')); return; }
@@ -60,25 +70,35 @@
     database.close();
     return Array.isArray(result) ? result.filter(validRecord).sort(byDateDesc) : null;
   }
-  async function saveRecords() {
-    const snapshot = records.filter(validRecord).sort(byDateDesc);
+  async function saveRecords(candidate = records) {
+    const snapshot = normalizeRecords(candidate);
+    const serialized = JSON.stringify(snapshot);
+    let persisted = false;
+    try {
+      localStorage.setItem(STORAGE_KEY, serialized);
+      persisted = localStorage.getItem(STORAGE_KEY) === serialized;
+    } catch { /* IndexedDB is retained as a fallback. */ }
     try {
       const database = await openDatabase();
       const transaction = database.transaction(DATABASE_STORE, 'readwrite');
       transaction.objectStore(DATABASE_STORE).put(snapshot, DATABASE_RECORD_KEY);
       await completeTransaction(transaction);
       database.close();
-    } catch { /* LocalStorage is retained as the secondary persistence layer. */ }
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot)); } catch { /* The current in-memory record remains usable for this session. */ }
+      persisted = true;
+    } catch { /* LocalStorage is the primary persistence layer. */ }
+    if (!persisted) throw new Error('storage unavailable');
     return snapshot;
   }
   async function restoreRecords() {
+    const localRecords = loadRecords();
     try {
       const indexedRecords = await readIndexedRecords();
       if (recordsChangedBeforeRestore) await saveRecords();
-      else if (indexedRecords !== null) records = indexedRecords;
-      else if (records.length) await saveRecords();
-    } catch { /* The LocalStorage fallback was already loaded. */ }
+      else {
+        records = mergeRecords(indexedRecords || [], localRecords);
+        if (records.length || indexedRecords !== null) await saveRecords(records);
+      }
+    } catch { records = mergeRecords(records, localRecords); }
     render();
   }
   function byDateDesc(a, b) { return new Date(b.date) - new Date(a.date); }
@@ -200,18 +220,24 @@
   }
 
   $('#addRecord').addEventListener('click', openRecordDialog);
-  els.recordForm.addEventListener('submit', event => {
+  els.recordForm.addEventListener('submit', async event => {
     event.preventDefault(); const value = Number(els.valueInput.value); const date = readMeasurementDate(els.dateInput.value);
     if (IS_LOCAL_FILE) { showToast('请通过网页版本打开后再保存记录'); return; }
     if (!Number.isFinite(value) || value < 50 || value > 1500) { showToast('请输入有效的尿酸数值'); return; }
     const recordId = editingId || uid();
     const nextRecord = { id: recordId, value: Math.round(value), date: date.toISOString(), note: els.noteInput.value.trim() };
-    if (editingId) records = records.map(record => record.id === recordId ? nextRecord : record);
-    else records = [nextRecord, ...records];
-    records.sort(byDateDesc);
+    const previousRecords = records;
+    records = editingId ? records.map(record => record.id === recordId ? nextRecord : record) : [nextRecord, ...records];
+    records = normalizeRecords(records);
     recordsChangedBeforeRestore = true;
+    try { records = await saveRecords(records); }
+    catch {
+      records = previousRecords;
+      render();
+      showToast('保存失败，请检查浏览器存储权限');
+      return;
+    }
     els.recordDialog.close(); selectedId = recordId; editingId = null; render(); showToast(`已保存到本机，共 ${records.length} 条`);
-    saveRecords().then(savedRecords => { records = savedRecords; render(); });
   });
   document.querySelectorAll('[data-close]').forEach(button => button.addEventListener('click', () => $(`#${button.dataset.close}`).close()));
   els.deleteRecord.addEventListener('click', deleteActiveRecord);
@@ -230,7 +256,7 @@
   if (IS_LOCAL_FILE) {
     els.localFileNotice.classList.remove('hidden');
     els.offlineStatus.textContent = '请通过网页版本打开';
-  } else if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js?v=10', { updateViaCache: 'none' }).then(registration => { registration.update(); els.offlineStatus.textContent = '已缓存，断网也可使用'; }).catch(() => { els.offlineStatus.textContent = '浏览器未启用离线缓存'; }); else els.offlineStatus.textContent = '当前浏览器不支持离线缓存';
+  } else if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js?v=11', { updateViaCache: 'none' }).then(registration => { registration.update(); els.offlineStatus.textContent = '已缓存，断网也可使用'; }).catch(() => { els.offlineStatus.textContent = '浏览器未启用离线缓存'; }); else els.offlineStatus.textContent = '当前浏览器不支持离线缓存';
   applyTheme();
   render();
   restoreRecords();
