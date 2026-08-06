@@ -12,7 +12,7 @@
   const els = {
     metricCard: $('#metricCard'), metricValue: $('#metricValue'), metricDate: $('#metricDate'), metricState: $('#metricState'), statusDot: $('#statusDot'), changePill: $('#changePill'),
     rangeCaption: $('#rangeCaption'), chartSummary: $('#chartSummary'), chartGrid: $('#chartGrid'), chartArea: $('#chartArea'), chartLine: $('#chartLine'), chartPoints: $('#chartPoints'), chartLabels: $('#chartLabels'), chartHint: $('#chartHint'),
-    weekAverage: $('#weekAverage'), recordCount: $('#recordCount'), daysSince: $('#daysSince'), historyList: $('#historyList'), showAllRecords: $('#showAllRecords'),
+    weekAverage: $('#weekAverage'), recordCount: $('#recordCount'), daysSince: $('#daysSince'), historySection: $('#historySection'), historyList: $('#historyList'), showAllRecords: $('#showAllRecords'),
     recordDialog: $('#recordDialog'), recordForm: $('#recordForm'), recordDialogEyebrow: $('#recordDialogEyebrow'), recordDialogTitle: $('#recordDialogTitle'), saveRecordButton: $('#saveRecordButton'), valueInput: $('#valueInput'), dateInput: $('#dateInput'), noteInput: $('#noteInput'), detailDialog: $('#detailDialog'), detailValue: $('#detailValue'), detailContent: $('#detailContent'), editRecord: $('#editRecord'), deleteRecord: $('#deleteRecord'),
     settingsDialog: $('#settingsDialog'), themeSelect: $('#themeSelect'), offlineStatus: $('#offlineStatus'), importData: $('#importData'), toast: $('#toast')
   };
@@ -83,6 +83,14 @@
   function byDateDesc(a, b) { return new Date(b.date) - new Date(a.date); }
   function uid() { return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`; }
   function toLocalInputValue(date = new Date()) { const d = new Date(date); const offset = d.getTimezoneOffset() * 60000; return new Date(d - offset).toISOString().slice(0, 16); }
+  function defaultMeasurementDate() { const date = new Date(); date.setHours(8, 0, 0, 0); return date; }
+  function readMeasurementDate(value) {
+    const match = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+    if (!match) return defaultMeasurementDate();
+    const [, year, month, day, hour, minute] = match;
+    const date = new Date(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute));
+    return Number.isNaN(date.getTime()) ? defaultMeasurementDate() : date;
+  }
   function formatDate(value, withTime = true) { return new Intl.DateTimeFormat('zh-CN', { month: 'long', day: 'numeric', ...(withTime ? { hour: '2-digit', minute: '2-digit', hour12: false } : {}) }).format(new Date(value)); }
   function formatShortDate(value) { return new Intl.DateTimeFormat('zh-CN', { month: 'numeric', day: 'numeric' }).format(new Date(value)); }
   function dateDiffDays(value) { return Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 86400000)); }
@@ -173,7 +181,7 @@
     editingId = id; const record = id ? records.find(item => item.id === id) : null;
     els.recordDialogEyebrow.textContent = record ? '修改数据' : '新数据'; els.recordDialogTitle.textContent = record ? '编辑尿酸记录' : '记录尿酸'; els.saveRecordButton.textContent = record ? '保存修改' : '保存记录';
     if (record) { els.dateInput.value = toLocalInputValue(record.date); els.valueInput.value = record.value; els.noteInput.value = record.note || ''; }
-    else { const defaultDate = new Date(); defaultDate.setHours(8, 0, 0, 0); els.dateInput.value = toLocalInputValue(defaultDate); els.valueInput.value = ''; els.noteInput.value = '空腹'; }
+    else { els.dateInput.value = toLocalInputValue(defaultMeasurementDate()); els.valueInput.value = ''; els.noteInput.value = '空腹'; }
     els.recordDialog.showModal(); setTimeout(() => els.valueInput.focus(), 160);
   }
   function openDetail(id) {
@@ -191,17 +199,17 @@
   }
 
   $('#addRecord').addEventListener('click', openRecordDialog);
-  els.recordForm.addEventListener('submit', async event => {
-    event.preventDefault(); const value = Number(els.valueInput.value); const date = new Date(els.dateInput.value);
-    if (!Number.isFinite(value) || value < 50 || value > 1500 || Number.isNaN(date.getTime())) { showToast('请输入有效的尿酸数值和时间'); return; }
+  els.recordForm.addEventListener('submit', event => {
+    event.preventDefault(); const value = Number(els.valueInput.value); const date = readMeasurementDate(els.dateInput.value);
+    if (!Number.isFinite(value) || value < 50 || value > 1500) { showToast('请输入有效的尿酸数值'); return; }
     const recordId = editingId || uid();
     const nextRecord = { id: recordId, value: Math.round(value), date: date.toISOString(), note: els.noteInput.value.trim() };
     if (editingId) records = records.map(record => record.id === recordId ? nextRecord : record);
     else records = [nextRecord, ...records];
     records.sort(byDateDesc);
     recordsChangedBeforeRestore = true;
-    records = await saveRecords();
     els.recordDialog.close(); selectedId = recordId; editingId = null; render(); showToast(`已保存到本机，共 ${records.length} 条`);
+    saveRecords().then(savedRecords => { records = savedRecords; render(); });
   });
   document.querySelectorAll('[data-close]').forEach(button => button.addEventListener('click', () => $(`#${button.dataset.close}`).close()));
   els.deleteRecord.addEventListener('click', deleteActiveRecord);
@@ -209,7 +217,7 @@
   document.querySelectorAll('.segment').forEach(button => button.addEventListener('click', () => { activeRange = button.dataset.range; selectedId = null; document.querySelectorAll('.segment').forEach(segment => { const active = segment === button; segment.classList.toggle('active', active); segment.setAttribute('aria-selected', active); }); renderChart(); }));
   $('#openSettings').addEventListener('click', () => els.settingsDialog.showModal());
   if (els.themeSelect) els.themeSelect.addEventListener('change', () => { localStorage.setItem(THEME_KEY, els.themeSelect.value); applyTheme(); });
-  els.showAllRecords.addEventListener('click', () => { historyExpanded = true; renderHistory(); window.scrollTo({ top: document.querySelector('.history-section').offsetTop - 18, behavior: 'smooth' }); });
+  els.showAllRecords.addEventListener('click', () => { historyExpanded = true; els.historySection.classList.remove('hidden'); renderHistory(); window.scrollTo({ top: els.historySection.offsetTop - 18, behavior: 'smooth' }); });
   $('#exportData').addEventListener('click', () => { const payload = { app: '个人尿酸记录', version: 1, exportedAt: new Date().toISOString(), records }; const link = document.createElement('a'); link.href = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })); link.download = `尿酸记录备份-${new Date().toISOString().slice(0, 10)}.json`; link.click(); URL.revokeObjectURL(link.href); showToast('备份文件已生成'); });
   els.importData.addEventListener('change', async event => { const file = event.target.files[0]; if (!file) return; try { const content = JSON.parse(await file.text()); const imported = Array.isArray(content) ? content : content.records; if (!Array.isArray(imported) || !imported.every(validRecord)) throw new Error('invalid'); const existing = new Map(records.map(record => [record.id, record])); imported.forEach(record => existing.set(record.id || uid(), { id: record.id || uid(), value: Math.round(Number(record.value)), date: new Date(record.date).toISOString(), note: String(record.note || '').slice(0, 80) })); records = [...existing.values()].sort(byDateDesc); recordsChangedBeforeRestore = true; records = await saveRecords(); render(); showToast(`已导入 ${imported.length} 条记录`); } catch { showToast('无法识别这个备份文件'); } finally { event.target.value = ''; } });
   $('#clearData').addEventListener('click', async () => { if (!confirm('确定清空这台设备上的全部尿酸记录吗？此操作无法撤销。')) return; records = []; selectedId = null; recordsChangedBeforeRestore = true; records = await saveRecords(); els.settingsDialog.close(); render(); showToast('本机记录已清空'); });
@@ -217,7 +225,7 @@
   const handleColorSchemeChange = () => { if (getThemePreference() === 'system') applyTheme(); };
   if (colorScheme.addEventListener) colorScheme.addEventListener('change', handleColorSchemeChange);
   else if (colorScheme.addListener) colorScheme.addListener(handleColorSchemeChange);
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js?v=8').then(() => { els.offlineStatus.textContent = '已缓存，断网也可使用'; }).catch(() => { els.offlineStatus.textContent = '浏览器未启用离线缓存'; }); else els.offlineStatus.textContent = '当前浏览器不支持离线缓存';
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js?v=9', { updateViaCache: 'none' }).then(registration => { registration.update(); els.offlineStatus.textContent = '已缓存，断网也可使用'; }).catch(() => { els.offlineStatus.textContent = '浏览器未启用离线缓存'; }); else els.offlineStatus.textContent = '当前浏览器不支持离线缓存';
   applyTheme();
   render();
   restoreRecords();
