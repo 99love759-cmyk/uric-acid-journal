@@ -6,6 +6,7 @@
   const DATABASE_STORE = 'state';
   const DATABASE_RECORD_KEY = 'records';
   const THEME_KEY = 'personal-uric-acid-theme-v1';
+  const IS_LOCAL_FILE = window.location.protocol === 'file:';
   const LOW_THRESHOLD = 210;
   const HIGH_THRESHOLD = 420;
   const $ = selector => document.querySelector(selector);
@@ -14,7 +15,7 @@
     rangeCaption: $('#rangeCaption'), chartSummary: $('#chartSummary'), chartGrid: $('#chartGrid'), chartArea: $('#chartArea'), chartLine: $('#chartLine'), chartPoints: $('#chartPoints'), chartLabels: $('#chartLabels'), chartHint: $('#chartHint'),
     weekAverage: $('#weekAverage'), recordCount: $('#recordCount'), daysSince: $('#daysSince'), historySection: $('#historySection'), historyList: $('#historyList'), showAllRecords: $('#showAllRecords'),
     recordDialog: $('#recordDialog'), recordForm: $('#recordForm'), recordDialogEyebrow: $('#recordDialogEyebrow'), recordDialogTitle: $('#recordDialogTitle'), saveRecordButton: $('#saveRecordButton'), valueInput: $('#valueInput'), dateInput: $('#dateInput'), noteInput: $('#noteInput'), detailDialog: $('#detailDialog'), detailValue: $('#detailValue'), detailContent: $('#detailContent'), editRecord: $('#editRecord'), deleteRecord: $('#deleteRecord'),
-    settingsDialog: $('#settingsDialog'), themeSelect: $('#themeSelect'), offlineStatus: $('#offlineStatus'), importData: $('#importData'), toast: $('#toast')
+    settingsDialog: $('#settingsDialog'), themeSelect: $('#themeSelect'), offlineStatus: $('#offlineStatus'), importData: $('#importData'), localFileNotice: $('#localFileNotice'), toast: $('#toast')
   };
 
   let records = loadRecords();
@@ -201,6 +202,7 @@
   $('#addRecord').addEventListener('click', openRecordDialog);
   els.recordForm.addEventListener('submit', event => {
     event.preventDefault(); const value = Number(els.valueInput.value); const date = readMeasurementDate(els.dateInput.value);
+    if (IS_LOCAL_FILE) { showToast('请通过网页版本打开后再保存记录'); return; }
     if (!Number.isFinite(value) || value < 50 || value > 1500) { showToast('请输入有效的尿酸数值'); return; }
     const recordId = editingId || uid();
     const nextRecord = { id: recordId, value: Math.round(value), date: date.toISOString(), note: els.noteInput.value.trim() };
@@ -225,7 +227,10 @@
   const handleColorSchemeChange = () => { if (getThemePreference() === 'system') applyTheme(); };
   if (colorScheme.addEventListener) colorScheme.addEventListener('change', handleColorSchemeChange);
   else if (colorScheme.addListener) colorScheme.addListener(handleColorSchemeChange);
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js?v=9', { updateViaCache: 'none' }).then(registration => { registration.update(); els.offlineStatus.textContent = '已缓存，断网也可使用'; }).catch(() => { els.offlineStatus.textContent = '浏览器未启用离线缓存'; }); else els.offlineStatus.textContent = '当前浏览器不支持离线缓存';
+  if (IS_LOCAL_FILE) {
+    els.localFileNotice.classList.remove('hidden');
+    els.offlineStatus.textContent = '请通过网页版本打开';
+  } else if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js?v=10', { updateViaCache: 'none' }).then(registration => { registration.update(); els.offlineStatus.textContent = '已缓存，断网也可使用'; }).catch(() => { els.offlineStatus.textContent = '浏览器未启用离线缓存'; }); else els.offlineStatus.textContent = '当前浏览器不支持离线缓存';
   applyTheme();
   render();
   restoreRecords();

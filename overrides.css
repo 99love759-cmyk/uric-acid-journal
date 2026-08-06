@@ -17,6 +17,7 @@
 .detail-actions .danger-button { height: 43px; }
 .mini-stat-button { width: 100%; border: 1px solid rgba(255,255,255,.8); color: var(--ink); text-align: left; }
 .mini-stat-button:active { background: rgba(118,118,128,.12); }
+.local-file-notice { margin: 0 2px 16px; padding: 10px 12px; border-radius: 10px; background: rgba(255, 149, 0, .12); color: #9a5a00; font-size: 13px; line-height: 1.4; }
 @media (max-width: 360px) { .reference-range strong { font-size: 15px; } }
 
 .setting-row select { align-self: center; min-width: 104px; height: 34px; padding: 0 27px 0 10px; border: 0; border-radius: 8px; color: var(--ink); background: rgba(118, 118, 128, .14); font: inherit; font-size: 13px; font-weight: 650; text-align: right; }
@@ -50,4 +51,5 @@
 :root[data-theme="dark"] .danger-button { border-color: rgba(255, 69, 58, .34); background: rgba(255, 69, 58, .16); color: #ff6961; }
 :root[data-theme="dark"] .local-badge { background: rgba(48, 183, 123, .2); color: #66d49b; }
 :root[data-theme="dark"] .toast { background: rgba(242, 242, 247, .94); color: #1c1c1e; }
+:root[data-theme="dark"] .local-file-notice { background: rgba(255, 159, 10, .18); color: #ffd08a; }
 @media (min-width: 681px) { :root[data-theme="dark"] body { background: #000; } :root[data-theme="dark"] .app-shell { background: #101012; box-shadow: 0 0 50px rgba(0, 0, 0, .5); } }
