@@ -12,7 +12,7 @@
   const els = {
     metricCard: $('#metricCard'), metricValue: $('#metricValue'), metricDate: $('#metricDate'), metricState: $('#metricState'), statusDot: $('#statusDot'), changePill: $('#changePill'),
     rangeCaption: $('#rangeCaption'), chartSummary: $('#chartSummary'), chartGrid: $('#chartGrid'), chartArea: $('#chartArea'), chartLine: $('#chartLine'), chartPoints: $('#chartPoints'), chartLabels: $('#chartLabels'), chartHint: $('#chartHint'),
-    weekAverage: $('#weekAverage'), recordCount: $('#recordCount'), daysSince: $('#daysSince'), historyList: $('#historyList'),
+    weekAverage: $('#weekAverage'), recordCount: $('#recordCount'), daysSince: $('#daysSince'), historyList: $('#historyList'), showAllRecords: $('#showAllRecords'),
     recordDialog: $('#recordDialog'), recordForm: $('#recordForm'), recordDialogEyebrow: $('#recordDialogEyebrow'), recordDialogTitle: $('#recordDialogTitle'), saveRecordButton: $('#saveRecordButton'), valueInput: $('#valueInput'), dateInput: $('#dateInput'), noteInput: $('#noteInput'), detailDialog: $('#detailDialog'), detailValue: $('#detailValue'), detailContent: $('#detailContent'), editRecord: $('#editRecord'), deleteRecord: $('#deleteRecord'),
     settingsDialog: $('#settingsDialog'), themeSelect: $('#themeSelect'), offlineStatus: $('#offlineStatus'), importData: $('#importData'), toast: $('#toast')
   };
@@ -22,6 +22,8 @@
   let selectedId = null;
   let editingId = null;
   let toastTimer;
+  let recordsChangedBeforeRestore = false;
+  let historyExpanded = false;
 
   function getThemePreference() { return localStorage.getItem(THEME_KEY) || 'system'; }
   function applyTheme(preference = getThemePreference()) {
@@ -65,17 +67,15 @@
       transaction.objectStore(DATABASE_STORE).put(snapshot, DATABASE_RECORD_KEY);
       await completeTransaction(transaction);
       database.close();
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot)); } catch { /* IndexedDB remains the primary store. */ }
-      return snapshot;
-    } catch {
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot)); return loadRecords(); }
-      catch { throw new Error('storage unavailable'); }
-    }
+    } catch { /* LocalStorage is retained as the secondary persistence layer. */ }
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot)); } catch { /* The current in-memory record remains usable for this session. */ }
+    return snapshot;
   }
   async function restoreRecords() {
     try {
       const indexedRecords = await readIndexedRecords();
-      if (indexedRecords !== null) records = indexedRecords;
+      if (recordsChangedBeforeRestore) await saveRecords();
+      else if (indexedRecords !== null) records = indexedRecords;
       else if (records.length) await saveRecords();
     } catch { /* The LocalStorage fallback was already loaded. */ }
     render();
@@ -159,14 +159,13 @@
 
   function renderHistory() {
     els.historyList.replaceChildren();
-    const visible = records.slice(0, 5);
+    const visible = historyExpanded ? records : records.slice(0, 5);
     if (!visible.length) { els.historyList.innerHTML = '<p class="empty-history">还没有检测记录</p>'; return; }
     visible.forEach(record => {
       const item = document.createElement('article'); item.className = 'history-row'; item.tabIndex = 0; item.setAttribute('role', 'button'); item.setAttribute('aria-label', `查看 ${record.value} 的记录`);
       item.innerHTML = `<div class="history-main"><strong>${record.value} μmol/L</strong><p>${record.note || condition(record.value)}</p></div><time class="history-date">${formatDate(record.date)}</time>`;
       item.addEventListener('click', () => openDetail(record.id)); item.addEventListener('keydown', event => { if (event.key === 'Enter') openDetail(record.id); }); els.historyList.append(item);
     });
-    $('#showAll').textContent = records.length > 5 ? `全部 ${records.length} 条` : '查看全部';
   }
   function render() { renderMetric(); renderStats(); renderChart(); renderHistory(); }
 
@@ -186,8 +185,8 @@
   async function deleteActiveRecord() {
     if (!selectedId) return;
     records = records.filter(record => record.id !== selectedId);
-    try { records = await saveRecords(); }
-    catch { showToast('删除失败，请重试'); return; }
+    recordsChangedBeforeRestore = true;
+    records = await saveRecords();
     selectedId = null; els.detailDialog.close(); render(); showToast('记录已删除');
   }
 
@@ -200,9 +199,8 @@
     if (editingId) records = records.map(record => record.id === recordId ? nextRecord : record);
     else records = [nextRecord, ...records];
     records.sort(byDateDesc);
-    try { records = await saveRecords(); }
-    catch { showToast('保存失败，请检查浏览器存储权限'); return; }
-    if (!records.some(record => record.id === recordId)) { showToast('保存失败，请重试'); return; }
+    recordsChangedBeforeRestore = true;
+    records = await saveRecords();
     els.recordDialog.close(); selectedId = recordId; editingId = null; render(); showToast(`已保存到本机，共 ${records.length} 条`);
   });
   document.querySelectorAll('[data-close]').forEach(button => button.addEventListener('click', () => $(`#${button.dataset.close}`).close()));
@@ -211,15 +209,15 @@
   document.querySelectorAll('.segment').forEach(button => button.addEventListener('click', () => { activeRange = button.dataset.range; selectedId = null; document.querySelectorAll('.segment').forEach(segment => { const active = segment === button; segment.classList.toggle('active', active); segment.setAttribute('aria-selected', active); }); renderChart(); }));
   $('#openSettings').addEventListener('click', () => els.settingsDialog.showModal());
   if (els.themeSelect) els.themeSelect.addEventListener('change', () => { localStorage.setItem(THEME_KEY, els.themeSelect.value); applyTheme(); });
-  $('#showAll').addEventListener('click', () => { activeRange = 'year'; document.querySelectorAll('.segment').forEach(segment => { const active = segment.dataset.range === 'year'; segment.classList.toggle('active', active); segment.setAttribute('aria-selected', active); }); window.scrollTo({ top: document.querySelector('.history-section').offsetTop - 18, behavior: 'smooth' }); renderChart(); });
+  els.showAllRecords.addEventListener('click', () => { historyExpanded = true; renderHistory(); window.scrollTo({ top: document.querySelector('.history-section').offsetTop - 18, behavior: 'smooth' }); });
   $('#exportData').addEventListener('click', () => { const payload = { app: '个人尿酸记录', version: 1, exportedAt: new Date().toISOString(), records }; const link = document.createElement('a'); link.href = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })); link.download = `尿酸记录备份-${new Date().toISOString().slice(0, 10)}.json`; link.click(); URL.revokeObjectURL(link.href); showToast('备份文件已生成'); });
-  els.importData.addEventListener('change', async event => { const file = event.target.files[0]; if (!file) return; try { const content = JSON.parse(await file.text()); const imported = Array.isArray(content) ? content : content.records; if (!Array.isArray(imported) || !imported.every(validRecord)) throw new Error('invalid'); const existing = new Map(records.map(record => [record.id, record])); imported.forEach(record => existing.set(record.id || uid(), { id: record.id || uid(), value: Math.round(Number(record.value)), date: new Date(record.date).toISOString(), note: String(record.note || '').slice(0, 80) })); records = [...existing.values()].sort(byDateDesc); records = await saveRecords(); render(); showToast(`已导入 ${imported.length} 条记录`); } catch { showToast('无法识别这个备份文件'); } finally { event.target.value = ''; } });
-  $('#clearData').addEventListener('click', async () => { if (!confirm('确定清空这台设备上的全部尿酸记录吗？此操作无法撤销。')) return; records = []; selectedId = null; try { records = await saveRecords(); } catch { showToast('清空失败，请重试'); return; } els.settingsDialog.close(); render(); showToast('本机记录已清空'); });
+  els.importData.addEventListener('change', async event => { const file = event.target.files[0]; if (!file) return; try { const content = JSON.parse(await file.text()); const imported = Array.isArray(content) ? content : content.records; if (!Array.isArray(imported) || !imported.every(validRecord)) throw new Error('invalid'); const existing = new Map(records.map(record => [record.id, record])); imported.forEach(record => existing.set(record.id || uid(), { id: record.id || uid(), value: Math.round(Number(record.value)), date: new Date(record.date).toISOString(), note: String(record.note || '').slice(0, 80) })); records = [...existing.values()].sort(byDateDesc); recordsChangedBeforeRestore = true; records = await saveRecords(); render(); showToast(`已导入 ${imported.length} 条记录`); } catch { showToast('无法识别这个备份文件'); } finally { event.target.value = ''; } });
+  $('#clearData').addEventListener('click', async () => { if (!confirm('确定清空这台设备上的全部尿酸记录吗？此操作无法撤销。')) return; records = []; selectedId = null; recordsChangedBeforeRestore = true; records = await saveRecords(); els.settingsDialog.close(); render(); showToast('本机记录已清空'); });
   const colorScheme = window.matchMedia('(prefers-color-scheme: dark)');
   const handleColorSchemeChange = () => { if (getThemePreference() === 'system') applyTheme(); };
   if (colorScheme.addEventListener) colorScheme.addEventListener('change', handleColorSchemeChange);
   else if (colorScheme.addListener) colorScheme.addListener(handleColorSchemeChange);
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js?v=7').then(() => { els.offlineStatus.textContent = '已缓存，断网也可使用'; }).catch(() => { els.offlineStatus.textContent = '浏览器未启用离线缓存'; }); else els.offlineStatus.textContent = '当前浏览器不支持离线缓存';
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js?v=8').then(() => { els.offlineStatus.textContent = '已缓存，断网也可使用'; }).catch(() => { els.offlineStatus.textContent = '浏览器未启用离线缓存'; }); else els.offlineStatus.textContent = '当前浏览器不支持离线缓存';
   applyTheme();
   render();
   restoreRecords();
