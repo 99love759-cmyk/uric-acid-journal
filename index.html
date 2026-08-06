@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#f5f5f7" id="themeColor" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="尿酸" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <link rel="manifest" href="manifest.webmanifest?v=7" />
+    <link rel="apple-touch-icon" href="icon-180.png?v=7" />
+    <link rel="icon" href="icon.svg?v=7" type="image/svg+xml" />
+    <link rel="stylesheet" href="styles.css?v=7" />
+    <link rel="stylesheet" href="overrides.css?v=7" />
+    <script>
+      (() => {
+        const preference = localStorage.getItem('personal-uric-acid-theme-v1') || 'system';
+        const dark = preference === 'dark' || (preference === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+      })();
+    </script>
+    <title>尿酸记录</title>
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">健康指标</p>
+          <h1>尿酸</h1>
+        </div>
+        <button class="icon-button" id="openSettings" aria-label="设置与数据管理" title="设置与数据管理">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z"/><path d="m19.4 13.5.1-1.5-.1-1.5 2-1.5-2-3.5-2.4 1a8.5 8.5 0 0 0-2.6-1.5L14 2h-4l-.4 3a8.5 8.5 0 0 0-2.6 1.5l-2.4-1-2 3.5 2 1.5-.1 1.5.1 1.5-2 1.5 2 3.5 2.4-1a8.5 8.5 0 0 0 2.6 1.5l.4 3h4l.4-3a8.5 8.5 0 0 0 2.6-1.5l2.4 1 2-3.5-2-1.5Z"/></svg>
+        </button>
+      </header>
+
+      <section class="metric-card" id="metricCard" aria-label="当前尿酸值">
+        <div class="metric-ambient ambient-one"></div><div class="metric-ambient ambient-two"></div>
+        <div class="metric-label"><span class="status-dot" id="statusDot"></span><span id="metricState">最新记录</span></div>
+        <div class="reference-range"><span>成人男性参考</span><strong>210–420</strong><small>μmol/L</small></div>
+        <div class="metric-reading"><strong id="metricValue">--</strong><span>μmol/L</span></div>
+        <div class="metric-footer"><span id="metricDate">还没有记录</span><span id="changePill" class="change-pill hidden"></span></div>
+      </section>
+
+      <section class="trend-section" aria-labelledby="trendTitle">
+        <div class="section-title-row"><div><p class="eyebrow">趋势</p><h2 id="trendTitle">尿酸趋势</h2></div><span class="range-caption" id="rangeCaption"></span></div>
+        <div class="segmented" role="tablist" aria-label="趋势时间范围">
+          <button class="segment active" data-range="week" role="tab" aria-selected="true">周</button>
+          <button class="segment" data-range="month" role="tab" aria-selected="false">月</button>
+          <button class="segment" data-range="sixMonths" role="tab" aria-selected="false">6个月</button>
+          <button class="segment" data-range="year" role="tab" aria-selected="false">年</button>
+        </div>
+        <div class="chart-card" id="chartCard">
+          <div class="chart-summary" id="chartSummary"><strong>暂无数据</strong><span>记录一次检测结果后查看趋势</span></div>
+          <svg class="trend-chart" id="trendChart" viewBox="0 0 340 202" preserveAspectRatio="none" role="img" aria-label="尿酸趋势折线图">
+            <defs><linearGradient id="areaGradient" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#ff675f" stop-opacity=".22"/><stop offset="1" stop-color="#ff675f" stop-opacity="0"/></linearGradient></defs>
+            <g id="chartGrid"></g><path id="chartArea" fill="url(#areaGradient)"></path><path id="chartLine" fill="none"></path><g id="chartPoints"></g><g id="chartLabels"></g>
+          </svg>
+          <p class="chart-hint" id="chartHint">轻点曲线上的点查看测量详情</p>
+        </div>
+      </section>
+
+      <section class="stats-section" aria-label="近期概览">
+        <div class="mini-stat"><span>最近 7 天</span><strong id="weekAverage">--</strong><small>平均 μmol/L</small></div>
+        <div class="mini-stat"><span>记录次数</span><strong id="recordCount">0</strong><small>全部历史</small></div>
+        <div class="mini-stat"><span>最近检测</span><strong id="daysSince">--</strong><small>距今天</small></div>
+      </section>
+
+      <section class="history-section" aria-labelledby="historyTitle">
+        <div class="section-title-row"><div><p class="eyebrow">历史</p><h2 id="historyTitle">全部记录</h2></div><button class="text-button" id="showAll">查看全部</button></div>
+        <div class="history-list" id="historyList"></div>
+      </section>
+    </main>
+
+    <button class="add-button" id="addRecord" aria-label="添加尿酸记录" title="添加尿酸记录"><span>+</span><b>记录</b></button>
+
+    <dialog class="sheet" id="recordDialog">
+      <form class="sheet-card" id="recordForm">
+        <div class="sheet-handle"></div><div class="sheet-title"><div><p class="eyebrow" id="recordDialogEyebrow">新数据</p><h2 id="recordDialogTitle">记录尿酸</h2></div><button type="button" class="close-button" data-close="recordDialog" aria-label="关闭">×</button></div>
+        <label class="value-field"><span>尿酸数值</span><div><input id="valueInput" type="number" inputmode="decimal" min="50" max="1500" step="1" placeholder="0" required autofocus /><b>μmol/L</b></div></label>
+        <label>检测日期与时间<input id="dateInput" class="date-time-input" type="datetime-local" required /></label>
+        <label>备注 <em>可选</em><input id="noteInput" maxlength="80" placeholder="例如：空腹、餐后 2 小时" /></label>
+        <button class="primary-button" id="saveRecordButton" type="submit">保存记录</button>
+      </form>
+    </dialog>
+
+    <dialog class="sheet" id="detailDialog"><div class="sheet-card detail-card"><div class="sheet-handle"></div><div class="sheet-title"><div><p class="eyebrow">检测详情</p><h2 id="detailValue">-- μmol/L</h2></div><button type="button" class="close-button" data-close="detailDialog" aria-label="关闭">×</button></div><div class="detail-content" id="detailContent"></div><div class="detail-actions"><button class="tool-button" id="editRecord" type="button">编辑记录</button><button class="danger-button" id="deleteRecord" type="button">删除此记录</button></div></div></dialog>
+
+    <dialog class="sheet" id="settingsDialog"><div class="sheet-card settings-card"><div class="sheet-handle"></div><div class="sheet-title"><div><p class="eyebrow">本机数据</p><h2>设置与数据</h2></div><button type="button" class="close-button" data-close="settingsDialog" aria-label="关闭">×</button></div><div class="setting-row"><div><strong>外观</strong><span>选择显示模式</span></div><select id="themeSelect" aria-label="外观模式"><option value="system">跟随系统</option><option value="light">浅色</option><option value="dark">深色</option></select></div><div class="setting-row"><div><strong>离线可用</strong><span id="offlineStatus">正在检查</span></div><span class="local-badge">仅本机</span></div><div class="setting-row"><div><strong>健康提示阈值</strong><span>高于 420 μmol/L 以警示色显示</span></div></div><div class="settings-actions"><button class="tool-button" id="exportData" type="button">导出备份</button><label class="tool-button">导入备份<input id="importData" type="file" accept="application/json" /></label><button class="danger-button full" id="clearData" type="button">清空所有本机记录</button></div><p class="privacy-note">数据只保存在此设备的浏览器中。导出的备份文件不加密，请妥善保管。</p></div></dialog>
+    <div class="toast" id="toast" aria-live="polite"></div>
+    <script src="app.js?v=7"></script>
+  </body>
+</html>

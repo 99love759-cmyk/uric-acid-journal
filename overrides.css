@@ -1,0 +1,51 @@
+/* Refinements for the installed iOS experience. */
+.metric-card { padding-top: 22px; }
+.metric-card.elevated { background: linear-gradient(135deg, #c94247, #e85d4c 62%, #ee8b59); box-shadow: 0 15px 34px rgba(192, 61, 56, .28); }
+.reference-range { position: absolute; top: 19px; right: 20px; display: grid; justify-items: end; gap: 2px; color: rgba(255,255,255,.9); text-align: right; }
+.reference-range span { font-size: 10px; font-weight: 650; opacity: .78; }
+.reference-range strong { font-size: 17px; line-height: 1.1; font-weight: 720; letter-spacing: 0; }
+.reference-range small { font-size: 10px; opacity: .76; white-space: nowrap; }
+.segmented { grid-template-columns: repeat(4, 1fr); }
+.segment { font-size: 12px; }
+.sheet-card .date-time-input { min-height: 50px; padding: 0 13px; font-size: 16px; line-height: 50px; text-align: left; }
+.sheet-card .date-time-input::-webkit-datetime-edit { display: flex; align-items: center; height: 48px; padding: 0; }
+.sheet-card .date-time-input::-webkit-date-and-time-value { min-height: 48px; text-align: left; }
+.settings-actions { grid-template-columns: 1fr; }
+.settings-actions label.tool-button { display: flex; align-items: center; justify-content: center; padding: 0 8px; white-space: nowrap; }
+.settings-actions .full { grid-column: auto; }
+.detail-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.detail-actions .danger-button { height: 43px; }
+@media (max-width: 360px) { .reference-range strong { font-size: 15px; } }
+
+.setting-row select { align-self: center; min-width: 104px; height: 34px; padding: 0 27px 0 10px; border: 0; border-radius: 8px; color: var(--ink); background: rgba(118, 118, 128, .14); font: inherit; font-size: 13px; font-weight: 650; text-align: right; }
+
+:root[data-theme="dark"] { color-scheme: dark; --ink: #f5f5f7; --muted: #a1a1a6; --line: rgba(235, 235, 245, .16); --surface: rgba(44, 44, 46, .82); --bg: #000; --shadow: 0 14px 34px rgba(0, 0, 0, .34); }
+:root[data-theme="dark"] body { background: #000; }
+:root[data-theme="dark"] .icon-button,
+:root[data-theme="dark"] .close-button { color: #f5f5f7; background: rgba(118, 118, 128, .32); }
+:root[data-theme="dark"] .segmented { background: rgba(118, 118, 128, .34); }
+:root[data-theme="dark"] .segment.active { background: #636366; color: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, .42); }
+:root[data-theme="dark"] .chart-card,
+:root[data-theme="dark"] .history-list,
+:root[data-theme="dark"] .mini-stat { border-color: rgba(255, 255, 255, .08); }
+:root[data-theme="dark"] .chart-card,
+:root[data-theme="dark"] .history-list { background: #1c1c1e; }
+:root[data-theme="dark"] .mini-stat { background: #2c2c2e; }
+:root[data-theme="dark"] .grid-line { stroke: #48484a; }
+:root[data-theme="dark"] .grid-label,
+:root[data-theme="dark"] .x-label { fill: #98989d; }
+:root[data-theme="dark"] .chart-dot { fill: #1c1c1e; }
+:root[data-theme="dark"] .history-row:active { background: rgba(255, 255, 255, .08); }
+:root[data-theme="dark"] .add-button { color: #1c1c1e; background: rgba(255, 255, 255, .9); box-shadow: 0 7px 20px rgba(0, 0, 0, .42); }
+:root[data-theme="dark"] .sheet::backdrop { background: rgba(0, 0, 0, .55); }
+:root[data-theme="dark"] .sheet-card { background: rgba(28, 28, 30, .96); }
+:root[data-theme="dark"] .sheet-handle { background: #636366; }
+:root[data-theme="dark"] .sheet-card input,
+:root[data-theme="dark"] .value-field > div { border-color: rgba(235, 235, 245, .16); background: #2c2c2e; color: #f5f5f7; }
+:root[data-theme="dark"] .sheet-card input:focus { border-color: var(--coral); }
+:root[data-theme="dark"] .tool-button { border-color: rgba(235, 235, 245, .16); background: #2c2c2e; color: #f5f5f7; }
+:root[data-theme="dark"] .setting-row select { color: #f5f5f7; background-color: #3a3a3c; }
+:root[data-theme="dark"] .danger-button { border-color: rgba(255, 69, 58, .34); background: rgba(255, 69, 58, .16); color: #ff6961; }
+:root[data-theme="dark"] .local-badge { background: rgba(48, 183, 123, .2); color: #66d49b; }
+:root[data-theme="dark"] .toast { background: rgba(242, 242, 247, .94); color: #1c1c1e; }
+@media (min-width: 681px) { :root[data-theme="dark"] body { background: #000; } :root[data-theme="dark"] .app-shell { background: #101012; box-shadow: 0 0 50px rgba(0, 0, 0, .5); } }
