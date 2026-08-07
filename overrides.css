@@ -5,7 +5,7 @@
 .reference-range span { font-size: 10px; font-weight: 650; opacity: .78; }
 .reference-range strong { font-size: 17px; line-height: 1.1; font-weight: 720; letter-spacing: 0; }
 .reference-range small { font-size: 10px; opacity: .76; white-space: nowrap; }
-.segmented { grid-template-columns: repeat(4, 1fr); }
+.segmented { grid-template-columns: repeat(5, 1fr); }
 .segment { font-size: 12px; }
 .sheet-card .date-time-input { min-height: 50px; padding: 0 13px; font-size: 16px; line-height: 50px; text-align: left; }
 .sheet-card .date-time-input::-webkit-datetime-edit { display: flex; align-items: center; height: 48px; padding: 0; }

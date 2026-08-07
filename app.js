@@ -7,7 +7,7 @@
   const DATABASE_STORE = 'state';
   const DATABASE_RECORD_KEY = 'records';
   const THEME_KEY = 'personal-uric-acid-theme-v1';
-  const APP_VERSION = 'v17';
+  const APP_VERSION = 'v18';
   const IS_LOCAL_FILE = window.location.protocol === 'file:';
   const LOW_THRESHOLD = 210;
   const HIGH_THRESHOLD = 420;
@@ -92,9 +92,14 @@
   function formatShortDate(value) { return new Intl.DateTimeFormat('zh-CN', { month: 'numeric', day: 'numeric' }).format(new Date(value)); }
   function dateDiffDays(value) { return Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 86400000)); }
   function showToast(message) { clearTimeout(toastTimer); els.toast.textContent = message; els.toast.classList.add('show'); toastTimer = setTimeout(() => els.toast.classList.remove('show'), 2200); }
-  function getRangeStart(range) { const now = new Date(); const days = range === 'week' ? 7 : range === 'month' ? 30 : range === 'sixMonths' ? 183 : 365; return new Date(now.getTime() - days * 86400000); }
+  function getRangeStart(range) {
+    const now = new Date();
+    if (range === 'day') return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const days = range === 'week' ? 7 : range === 'month' ? 30 : range === 'sixMonths' ? 183 : 365;
+    return new Date(now.getTime() - days * 86400000);
+  }
   function rangeRecords() { return records.filter(record => new Date(record.date) >= getRangeStart(activeRange)).slice().sort((a, b) => new Date(a.date) - new Date(b.date)); }
-  function rangeName(range) { return { week: '最近 7 天', month: '最近 30 天', sixMonths: '最近 6 个月', year: '最近 1 年' }[range]; }
+  function rangeName(range) { return { day: '今天', week: '最近 7 天', month: '最近 30 天', sixMonths: '最近 6 个月', year: '最近 1 年' }[range]; }
   function condition(value) { const numeric = Number(value); return numeric > HIGH_THRESHOLD ? '偏高' : numeric < LOW_THRESHOLD ? '偏低' : '在参考范围内'; }
 
   function renderMetric() {
@@ -120,7 +125,11 @@
     else { const days = dateDiffDays(records[0].date); els.daysSince.textContent = days === 0 ? '今天' : `${days} 天`; }
   }
 
-  function chartDateLabel(record) { return activeRange === 'year' ? new Intl.DateTimeFormat('zh-CN', { month: 'short' }).format(new Date(record.date)) : formatShortDate(record.date); }
+  function chartDateLabel(record) {
+    const date = new Date(record.date);
+    if (activeRange === 'day') return new Intl.DateTimeFormat('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }).format(date);
+    return activeRange === 'year' ? new Intl.DateTimeFormat('zh-CN', { month: 'short' }).format(date) : formatShortDate(date);
+  }
   function renderChart() {
     const points = rangeRecords();
     const name = rangeName(activeRange);
@@ -238,7 +247,7 @@
   if (IS_LOCAL_FILE) {
     els.localFileNotice.classList.remove('hidden');
     els.offlineStatus.textContent = '本地文件模式';
-  } else if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js?v=17', { updateViaCache: 'none' }).then(registration => { registration.update(); els.offlineStatus.textContent = '已缓存，断网也可使用'; }).catch(() => { els.offlineStatus.textContent = '浏览器未启用离线缓存'; }); else els.offlineStatus.textContent = '当前浏览器不支持离线缓存';
+  } else if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js?v=18', { updateViaCache: 'none' }).then(registration => { registration.update(); els.offlineStatus.textContent = '已缓存，断网也可使用'; }).catch(() => { els.offlineStatus.textContent = '浏览器未启用离线缓存'; }); else els.offlineStatus.textContent = '当前浏览器不支持离线缓存';
   if (els.appVersion) els.appVersion.textContent = APP_VERSION;
   applyTheme();
   render();

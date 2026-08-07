@@ -1,5 +1,5 @@
-const CACHE = 'uric-acid-v17';
-const ASSETS = ['./', './index.html', './styles.css?v=17', './overrides.css?v=17', './app.js?v=17', './manifest.webmanifest?v=17', './icon.svg?v=17', './icon-180.png?v=17', './icon-192.png?v=17', './icon-512.png?v=17'];
+const CACHE = 'uric-acid-v18';
+const ASSETS = ['./', './index.html', './styles.css?v=18', './overrides.css?v=18', './app.js?v=18', './manifest.webmanifest?v=18', './icon.svg?v=18', './icon-180.png?v=18', './icon-192.png?v=18', './icon-512.png?v=18'];
 self.addEventListener('install', event => event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)).then(() => self.skipWaiting())));
 self.addEventListener('activate', event => event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key.startsWith('uric-acid-') && key !== CACHE).map(key => caches.delete(key)))).then(() => self.clients.claim())));
 self.addEventListener('fetch', event => {
