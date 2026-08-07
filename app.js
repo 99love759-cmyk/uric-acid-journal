@@ -7,7 +7,7 @@
   const DATABASE_STORE = 'state';
   const DATABASE_RECORD_KEY = 'records';
   const THEME_KEY = 'personal-uric-acid-theme-v1';
-  const APP_VERSION = 'v16';
+  const APP_VERSION = 'v17';
   const IS_LOCAL_FILE = window.location.protocol === 'file:';
   const LOW_THRESHOLD = 210;
   const HIGH_THRESHOLD = 420;
@@ -15,7 +15,7 @@
   const els = {
     metricCard: $('#metricCard'), metricValue: $('#metricValue'), metricDate: $('#metricDate'), metricState: $('#metricState'), statusDot: $('#statusDot'), changePill: $('#changePill'),
     rangeCaption: $('#rangeCaption'), chartSummary: $('#chartSummary'), chartGrid: $('#chartGrid'), chartArea: $('#chartArea'), chartLine: $('#chartLine'), chartPoints: $('#chartPoints'), chartLabels: $('#chartLabels'), chartHint: $('#chartHint'),
-    weekAverage: $('#weekAverage'), recordCount: $('#recordCount'), daysSince: $('#daysSince'), historySection: $('#historySection'), historyList: $('#historyList'), showAllRecords: $('#showAllRecords'),
+    weekAverage: $('#weekAverage'), recordCount: $('#recordCount'), daysSince: $('#daysSince'), historySection: $('#historySection'), historyList: $('#historyList'), showWeekRecords: $('#showWeekRecords'), showAllRecords: $('#showAllRecords'),
     recordDialog: $('#recordDialog'), recordForm: $('#recordForm'), recordDialogEyebrow: $('#recordDialogEyebrow'), recordDialogTitle: $('#recordDialogTitle'), saveRecordButton: $('#saveRecordButton'), valueInput: $('#valueInput'), dateInput: $('#dateInput'), noteInput: $('#noteInput'), detailDialog: $('#detailDialog'), detailValue: $('#detailValue'), detailContent: $('#detailContent'), editRecord: $('#editRecord'), deleteRecord: $('#deleteRecord'),
     settingsDialog: $('#settingsDialog'), themeSelect: $('#themeSelect'), offlineStatus: $('#offlineStatus'), appVersion: $('#appVersion'), importData: $('#importData'), localFileNotice: $('#localFileNotice'), toast: $('#toast')
   };
@@ -25,7 +25,7 @@
   let selectedId = null;
   let editingId = null;
   let toastTimer;
-  let historyExpanded = false;
+  let historyMode = null;
 
   function getThemePreference() { return localStorage.getItem(THEME_KEY) || 'system'; }
   function applyTheme(preference = getThemePreference()) {
@@ -94,25 +94,22 @@
   function showToast(message) { clearTimeout(toastTimer); els.toast.textContent = message; els.toast.classList.add('show'); toastTimer = setTimeout(() => els.toast.classList.remove('show'), 2200); }
   function getRangeStart(range) { const now = new Date(); const days = range === 'week' ? 7 : range === 'month' ? 30 : range === 'sixMonths' ? 183 : 365; return new Date(now.getTime() - days * 86400000); }
   function rangeRecords() { return records.filter(record => new Date(record.date) >= getRangeStart(activeRange)).slice().sort((a, b) => new Date(a.date) - new Date(b.date)); }
+  function rangeName(range) { return { week: '最近 7 天', month: '最近 30 天', sixMonths: '最近 6 个月', year: '最近 1 年' }[range]; }
   function condition(value) { const numeric = Number(value); return numeric > HIGH_THRESHOLD ? '偏高' : numeric < LOW_THRESHOLD ? '偏低' : '在参考范围内'; }
 
   function renderMetric() {
-    const latest = records[0];
-    if (!latest) {
-      els.metricValue.textContent = '--'; els.metricDate.textContent = '还没有记录'; els.metricState.textContent = '最新记录'; els.changePill.classList.add('hidden');
+    const points = rangeRecords();
+    if (!points.length) {
+      els.metricValue.textContent = '--'; els.metricDate.textContent = `${rangeName(activeRange)}暂无记录`; els.metricState.textContent = `${rangeName(activeRange)}平均值`; els.changePill.classList.add('hidden');
       els.metricCard.classList.remove('elevated'); return;
     }
-    const elevated = Number(latest.value) > HIGH_THRESHOLD;
-    els.metricValue.textContent = latest.value;
-    els.metricDate.textContent = `${formatDate(latest.date)}${latest.note ? ` · ${latest.note}` : ''}`;
-    els.metricState.textContent = condition(latest.value);
+    const average = Math.round(points.reduce((sum, record) => sum + Number(record.value), 0) / points.length);
+    const elevated = average > HIGH_THRESHOLD;
+    els.metricValue.textContent = average;
+    els.metricDate.textContent = `${rangeName(activeRange)}共 ${points.length} 条记录`;
+    els.metricState.textContent = `${rangeName(activeRange)}平均值`;
     els.metricCard.classList.toggle('elevated', elevated);
-    const prior = records[1];
-    if (prior) {
-      const delta = Number(latest.value) - Number(prior.value);
-      els.changePill.textContent = `${delta > 0 ? '↑' : delta < 0 ? '↓' : '—'} ${Math.abs(delta)} vs 上次`;
-      els.changePill.classList.remove('hidden');
-    } else els.changePill.classList.add('hidden');
+    els.changePill.classList.add('hidden');
   }
 
   function renderStats() {
@@ -126,11 +123,11 @@
   function chartDateLabel(record) { return activeRange === 'year' ? new Intl.DateTimeFormat('zh-CN', { month: 'short' }).format(new Date(record.date)) : formatShortDate(record.date); }
   function renderChart() {
     const points = rangeRecords();
-    const names = { week: '最近 7 天', month: '最近 30 天', sixMonths: '最近 6 个月', year: '最近 1 年' };
-    els.rangeCaption.textContent = names[activeRange];
+    const name = rangeName(activeRange);
+    els.rangeCaption.textContent = name;
     els.chartGrid.replaceChildren(); els.chartPoints.replaceChildren(); els.chartLabels.replaceChildren(); els.chartLine.setAttribute('d', ''); els.chartArea.setAttribute('d', '');
     if (!points.length) {
-      els.chartSummary.innerHTML = `<strong>${names[activeRange]}暂无记录</strong><span>添加数据后趋势会在这里出现</span>`;
+      els.chartSummary.innerHTML = `<strong>${name}暂无记录</strong><span>添加数据后趋势会在这里出现</span>`;
       els.chartHint.textContent = '数据只保存在这台设备中';
       drawEmptyGrid(); return;
     }
@@ -163,8 +160,15 @@
   function smoothPath(coords) { if (coords.length === 1) return `M ${coords[0][0]} ${coords[0][1]}`; return coords.reduce((path, point, index) => { if (!index) return `M ${point[0]} ${point[1]}`; const previous = coords[index - 1]; const midX = (previous[0] + point[0]) / 2; return `${path} C ${midX} ${previous[1]}, ${midX} ${point[1]}, ${point[0]} ${point[1]}`; }, ''); }
 
   function renderHistory() {
+    const visible = historyMode === 'week' ? records.filter(record => new Date(record.date) >= getRangeStart('week')) : records;
+    const open = historyMode !== null;
+    els.historySection.classList.toggle('hidden', !open);
+    els.showAllRecords.classList.toggle('selected', historyMode === 'all');
+    els.showWeekRecords.classList.toggle('selected', historyMode === 'week');
+    els.showAllRecords.setAttribute('aria-expanded', String(historyMode === 'all'));
+    els.showWeekRecords.setAttribute('aria-expanded', String(historyMode === 'week'));
+    if (!open) return;
     els.historyList.replaceChildren();
-    const visible = historyExpanded ? records : records.slice(0, 5);
     if (!visible.length) { els.historyList.innerHTML = '<p class="empty-history">还没有检测记录</p>'; return; }
     visible.forEach(record => {
       const item = document.createElement('article'); item.className = 'history-row'; item.tabIndex = 0; item.setAttribute('role', 'button'); item.setAttribute('aria-label', `查看 ${record.value} 的记录`);
@@ -173,6 +177,12 @@
     });
   }
   function render() { renderMetric(); renderStats(); renderChart(); renderHistory(); }
+
+  function toggleHistory(mode) {
+    historyMode = historyMode === mode ? null : mode;
+    renderHistory();
+    if (historyMode) window.scrollTo({ top: els.historySection.offsetTop - 18, behavior: 'smooth' });
+  }
 
   function openRecordDialog(id = null) {
     editingId = id; const record = id ? records.find(item => item.id === id) : null;
@@ -213,10 +223,11 @@
   document.querySelectorAll('[data-close]').forEach(button => button.addEventListener('click', () => $(`#${button.dataset.close}`).close()));
   els.deleteRecord.addEventListener('click', deleteActiveRecord);
   els.editRecord.addEventListener('click', () => { if (!selectedId) return; els.detailDialog.close(); openRecordDialog(selectedId); });
-  document.querySelectorAll('.segment').forEach(button => button.addEventListener('click', () => { activeRange = button.dataset.range; selectedId = null; document.querySelectorAll('.segment').forEach(segment => { const active = segment === button; segment.classList.toggle('active', active); segment.setAttribute('aria-selected', active); }); renderChart(); }));
+  document.querySelectorAll('.segment').forEach(button => button.addEventListener('click', () => { activeRange = button.dataset.range; selectedId = null; document.querySelectorAll('.segment').forEach(segment => { const active = segment === button; segment.classList.toggle('active', active); segment.setAttribute('aria-selected', active); }); renderMetric(); renderChart(); }));
   $('#openSettings').addEventListener('click', () => els.settingsDialog.showModal());
   if (els.themeSelect) els.themeSelect.addEventListener('change', () => { localStorage.setItem(THEME_KEY, els.themeSelect.value); applyTheme(); });
-  els.showAllRecords.addEventListener('click', () => { historyExpanded = true; els.historySection.classList.remove('hidden'); renderHistory(); window.scrollTo({ top: els.historySection.offsetTop - 18, behavior: 'smooth' }); });
+  els.showWeekRecords.addEventListener('click', () => toggleHistory('week'));
+  els.showAllRecords.addEventListener('click', () => toggleHistory('all'));
   $('#exportData').addEventListener('click', () => { const payload = { app: '个人尿酸记录', version: 1, exportedAt: new Date().toISOString(), records }; const link = document.createElement('a'); link.href = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })); link.download = `尿酸记录备份-${new Date().toISOString().slice(0, 10)}.json`; link.click(); URL.revokeObjectURL(link.href); showToast('备份文件已生成'); });
   els.importData.addEventListener('change', async event => { const file = event.target.files[0]; if (!file) return; try { const content = JSON.parse(await file.text()); const imported = Array.isArray(content) ? content : content.records; if (!Array.isArray(imported) || !imported.every(validRecord)) throw new Error('invalid'); const existing = new Map(records.map(record => [record.id, record])); imported.forEach(record => existing.set(record.id || uid(), { id: record.id || uid(), value: Math.round(Number(record.value)), date: new Date(record.date).toISOString(), note: String(record.note || '').slice(0, 80) })); records = [...existing.values()].sort(byDateDesc); records = await saveRecords(); render(); showToast(`已导入 ${imported.length} 条记录`); } catch { showToast('无法识别这个备份文件'); } finally { event.target.value = ''; } });
   $('#clearData').addEventListener('click', async () => { if (!confirm('确定清空这台设备上的全部尿酸记录吗？此操作无法撤销。')) return; records = []; selectedId = null; records = await saveRecords(); els.settingsDialog.close(); render(); showToast('本机记录已清空'); });
@@ -227,7 +238,7 @@
   if (IS_LOCAL_FILE) {
     els.localFileNotice.classList.remove('hidden');
     els.offlineStatus.textContent = '本地文件模式';
-  } else if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js?v=16', { updateViaCache: 'none' }).then(registration => { registration.update(); els.offlineStatus.textContent = '已缓存，断网也可使用'; }).catch(() => { els.offlineStatus.textContent = '浏览器未启用离线缓存'; }); else els.offlineStatus.textContent = '当前浏览器不支持离线缓存';
+  } else if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js?v=17', { updateViaCache: 'none' }).then(registration => { registration.update(); els.offlineStatus.textContent = '已缓存，断网也可使用'; }).catch(() => { els.offlineStatus.textContent = '浏览器未启用离线缓存'; }); else els.offlineStatus.textContent = '当前浏览器不支持离线缓存';
   if (els.appVersion) els.appVersion.textContent = APP_VERSION;
   applyTheme();
   render();

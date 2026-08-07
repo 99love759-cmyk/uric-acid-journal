@@ -17,6 +17,7 @@
 .detail-actions .danger-button { height: 43px; }
 .mini-stat-button { width: 100%; border: 1px solid rgba(255,255,255,.8); color: var(--ink); text-align: left; }
 .mini-stat-button:active { background: rgba(118,118,128,.12); }
+.mini-stat-button.selected { background: rgba(255, 90, 82, .1); border-color: rgba(255, 90, 82, .32); }
 .local-file-notice { margin: 0 2px 16px; padding: 10px 12px; border-radius: 10px; background: rgba(255, 149, 0, .12); color: #9a5a00; font-size: 13px; line-height: 1.4; }
 @media (max-width: 360px) { .reference-range strong { font-size: 15px; } }
 
@@ -34,6 +35,7 @@
 :root[data-theme="dark"] .chart-card,
 :root[data-theme="dark"] .history-list { background: #1c1c1e; }
 :root[data-theme="dark"] .mini-stat { background: #2c2c2e; }
+:root[data-theme="dark"] .mini-stat-button.selected { background: rgba(255, 105, 97, .18); border-color: rgba(255, 105, 97, .44); }
 :root[data-theme="dark"] .grid-line { stroke: #48484a; }
 :root[data-theme="dark"] .grid-label,
 :root[data-theme="dark"] .x-label { fill: #98989d; }
