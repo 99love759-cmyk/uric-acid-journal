@@ -7,7 +7,8 @@
   const DATABASE_STORE = 'state';
   const DATABASE_RECORD_KEY = 'records';
   const THEME_KEY = 'personal-uric-acid-theme-v1';
-  const APP_VERSION = 'v14';
+  const APP_VERSION = 'v15';
+  const DEBUG_MODE = new URLSearchParams(window.location.search).has('debug');
   const IS_LOCAL_FILE = window.location.protocol === 'file:';
   const LOW_THRESHOLD = 210;
   const HIGH_THRESHOLD = 420;
@@ -26,6 +27,8 @@
   let editingId = null;
   let toastTimer;
   let historyExpanded = false;
+
+  function debugLog(...values) { if (DEBUG_MODE) console.log('[uric-acid]', ...values); }
 
   function getThemePreference() { return localStorage.getItem(THEME_KEY) || 'system'; }
   function applyTheme(preference = getThemePreference()) {
@@ -56,10 +59,11 @@
   function completeTransaction(transaction) { return new Promise((resolve, reject) => { transaction.oncomplete = resolve; transaction.onerror = () => reject(transaction.error); transaction.onabort = () => reject(transaction.error); }); }
   async function saveRecords(candidate = records) {
     const snapshot = Array.isArray(candidate) ? candidate.slice().sort(byDateDesc) : [];
+    debugLog('saveRecords snapshot', snapshot);
     const serialized = JSON.stringify(snapshot);
     try {
       localStorage.setItem(STORAGE_KEY, serialized);
-      if (localStorage.getItem(STORAGE_KEY) === serialized) return snapshot;
+      if (localStorage.getItem(STORAGE_KEY) === serialized) { debugLog('localStorage saved', snapshot); return snapshot; }
     } catch { /* Try the legacy IndexedDB fallback below. */ }
 
     try {
@@ -73,7 +77,9 @@
   }
   async function saveNewRecord(record) {
     const snapshot = [record, ...records.filter(item => item.id !== record.id)].sort(byDateDesc);
+    debugLog('new record candidate', record, 'current records', records, 'next records', snapshot);
     const saved = await saveRecords(snapshot);
+    debugLog('new record saved', saved);
     if (!saved.some(item => item.id === record.id)) throw new Error('record not persisted');
     return saved;
   }
@@ -201,6 +207,7 @@
     const recordId = editingId || uid();
     const nextRecord = { id: recordId, value: Math.round(value), date: date.toISOString(), note: els.noteInput.value.trim() };
     const previousRecords = records;
+    debugLog('submit', { recordId, nextRecord, editingId });
     try { records = editingId ? await saveRecords(records.map(record => record.id === recordId ? nextRecord : record)) : await saveNewRecord(nextRecord); }
     catch {
       records = previousRecords;
@@ -208,6 +215,7 @@
       showToast('保存失败，请检查浏览器存储权限');
       return;
     }
+    debugLog('submit result', records);
     els.recordDialog.close(); selectedId = recordId; editingId = null; render(); showToast(`已保存到本机，共 ${records.length} 条`);
   });
   document.querySelectorAll('[data-close]').forEach(button => button.addEventListener('click', () => $(`#${button.dataset.close}`).close()));
@@ -227,7 +235,7 @@
   if (IS_LOCAL_FILE) {
     els.localFileNotice.classList.remove('hidden');
     els.offlineStatus.textContent = '本地文件模式';
-  } else if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js?v=14', { updateViaCache: 'none' }).then(registration => { registration.update(); els.offlineStatus.textContent = '已缓存，断网也可使用'; }).catch(() => { els.offlineStatus.textContent = '浏览器未启用离线缓存'; }); else els.offlineStatus.textContent = '当前浏览器不支持离线缓存';
+  } else if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js?v=15', { updateViaCache: 'none' }).then(registration => { registration.update(); els.offlineStatus.textContent = '已缓存，断网也可使用'; }).catch(() => { els.offlineStatus.textContent = '浏览器未启用离线缓存'; }); else els.offlineStatus.textContent = '当前浏览器不支持离线缓存';
   if (els.appVersion) els.appVersion.textContent = APP_VERSION;
   applyTheme();
   render();

@@ -8,11 +8,11 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="尿酸" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <link rel="manifest" href="manifest.webmanifest?v=14" />
-    <link rel="apple-touch-icon" href="icon-180.png?v=14" />
-    <link rel="icon" href="icon.svg?v=14" type="image/svg+xml" />
-    <link rel="stylesheet" href="styles.css?v=14" />
-    <link rel="stylesheet" href="overrides.css?v=14" />
+    <link rel="manifest" href="manifest.webmanifest?v=15" />
+    <link rel="apple-touch-icon" href="icon-180.png?v=15" />
+    <link rel="icon" href="icon.svg?v=15" type="image/svg+xml" />
+    <link rel="stylesheet" href="styles.css?v=15" />
+    <link rel="stylesheet" href="overrides.css?v=15" />
     <script>
       (() => {
         const preference = localStorage.getItem('personal-uric-acid-theme-v1') || 'system';
@@ -88,6 +88,6 @@
 
     <dialog class="sheet" id="settingsDialog"><div class="sheet-card settings-card"><div class="sheet-handle"></div><div class="sheet-title"><div><p class="eyebrow">本机数据</p><h2>设置与数据</h2></div><button type="button" class="close-button" data-close="settingsDialog" aria-label="关闭">×</button></div><div class="setting-row"><div><strong>外观</strong><span>选择显示模式</span></div><select id="themeSelect" aria-label="外观模式"><option value="system">跟随系统</option><option value="light">浅色</option><option value="dark">深色</option></select></div><div class="setting-row"><div><strong>离线可用</strong><span id="offlineStatus">正在检查</span></div><span class="local-badge">仅本机</span></div><div class="setting-row"><div><strong>应用版本</strong><span>已加载的记录程序版本</span></div><span class="local-badge" id="appVersion">--</span></div><div class="setting-row"><div><strong>健康提示阈值</strong><span>高于 420 μmol/L 以警示色显示</span></div></div><div class="settings-actions"><button class="tool-button" id="exportData" type="button">导出备份</button><label class="tool-button">导入备份<input id="importData" type="file" accept="application/json" /></label><button class="danger-button full" id="clearData" type="button">清空所有本机记录</button></div><p class="privacy-note">数据只保存在此设备的浏览器中。导出的备份文件不加密，请妥善保管。</p></div></dialog>
     <div class="toast" id="toast" aria-live="polite"></div>
-    <script src="app.js?v=14"></script>
+    <script src="app.js?v=15"></script>
   </body>
 </html>
