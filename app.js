@@ -23,7 +23,6 @@
   let selectedId = null;
   let editingId = null;
   let toastTimer;
-  let recordsChangedBeforeRestore = false;
   let historyExpanded = false;
 
   function getThemePreference() { return localStorage.getItem(THEME_KEY) || 'system'; }
@@ -73,32 +72,29 @@
   async function saveRecords(candidate = records) {
     const snapshot = normalizeRecords(candidate);
     const serialized = JSON.stringify(snapshot);
-    let persisted = false;
     try {
       localStorage.setItem(STORAGE_KEY, serialized);
-      persisted = localStorage.getItem(STORAGE_KEY) === serialized;
-    } catch { /* IndexedDB is retained as a fallback. */ }
+      if (localStorage.getItem(STORAGE_KEY) === serialized) return snapshot;
+    } catch { /* Try the legacy IndexedDB fallback below. */ }
+
     try {
       const database = await openDatabase();
       const transaction = database.transaction(DATABASE_STORE, 'readwrite');
       transaction.objectStore(DATABASE_STORE).put(snapshot, DATABASE_RECORD_KEY);
       await completeTransaction(transaction);
       database.close();
-      persisted = true;
-    } catch { /* LocalStorage is the primary persistence layer. */ }
-    if (!persisted) throw new Error('storage unavailable');
-    return snapshot;
+      return snapshot;
+    } catch { throw new Error('storage unavailable'); }
   }
   async function restoreRecords() {
-    const localRecords = loadRecords();
+    // LocalStorage is authoritative. IndexedDB is only read to migrate records from earlier app versions.
     try {
       const indexedRecords = await readIndexedRecords();
-      if (recordsChangedBeforeRestore) await saveRecords();
-      else {
-        records = mergeRecords(indexedRecords || [], localRecords);
-        if (records.length || indexedRecords !== null) await saveRecords(records);
+      if (indexedRecords && indexedRecords.length) {
+        records = mergeRecords(indexedRecords, records);
+        try { records = await saveRecords(records); } catch { /* Existing in-memory records remain available. */ }
       }
-    } catch { records = mergeRecords(records, localRecords); }
+    } catch { /* LocalStorage records were already loaded synchronously. */ }
     render();
   }
   function byDateDesc(a, b) { return new Date(b.date) - new Date(a.date); }
@@ -214,7 +210,6 @@
   async function deleteActiveRecord() {
     if (!selectedId) return;
     records = records.filter(record => record.id !== selectedId);
-    recordsChangedBeforeRestore = true;
     records = await saveRecords();
     selectedId = null; els.detailDialog.close(); render(); showToast('记录已删除');
   }
@@ -222,14 +217,12 @@
   $('#addRecord').addEventListener('click', openRecordDialog);
   els.recordForm.addEventListener('submit', async event => {
     event.preventDefault(); const value = Number(els.valueInput.value); const date = readMeasurementDate(els.dateInput.value);
-    if (IS_LOCAL_FILE) { showToast('请通过网页版本打开后再保存记录'); return; }
     if (!Number.isFinite(value) || value < 50 || value > 1500) { showToast('请输入有效的尿酸数值'); return; }
     const recordId = editingId || uid();
     const nextRecord = { id: recordId, value: Math.round(value), date: date.toISOString(), note: els.noteInput.value.trim() };
     const previousRecords = records;
     records = editingId ? records.map(record => record.id === recordId ? nextRecord : record) : [nextRecord, ...records];
     records = normalizeRecords(records);
-    recordsChangedBeforeRestore = true;
     try { records = await saveRecords(records); }
     catch {
       records = previousRecords;
@@ -247,16 +240,16 @@
   if (els.themeSelect) els.themeSelect.addEventListener('change', () => { localStorage.setItem(THEME_KEY, els.themeSelect.value); applyTheme(); });
   els.showAllRecords.addEventListener('click', () => { historyExpanded = true; els.historySection.classList.remove('hidden'); renderHistory(); window.scrollTo({ top: els.historySection.offsetTop - 18, behavior: 'smooth' }); });
   $('#exportData').addEventListener('click', () => { const payload = { app: '个人尿酸记录', version: 1, exportedAt: new Date().toISOString(), records }; const link = document.createElement('a'); link.href = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })); link.download = `尿酸记录备份-${new Date().toISOString().slice(0, 10)}.json`; link.click(); URL.revokeObjectURL(link.href); showToast('备份文件已生成'); });
-  els.importData.addEventListener('change', async event => { const file = event.target.files[0]; if (!file) return; try { const content = JSON.parse(await file.text()); const imported = Array.isArray(content) ? content : content.records; if (!Array.isArray(imported) || !imported.every(validRecord)) throw new Error('invalid'); const existing = new Map(records.map(record => [record.id, record])); imported.forEach(record => existing.set(record.id || uid(), { id: record.id || uid(), value: Math.round(Number(record.value)), date: new Date(record.date).toISOString(), note: String(record.note || '').slice(0, 80) })); records = [...existing.values()].sort(byDateDesc); recordsChangedBeforeRestore = true; records = await saveRecords(); render(); showToast(`已导入 ${imported.length} 条记录`); } catch { showToast('无法识别这个备份文件'); } finally { event.target.value = ''; } });
-  $('#clearData').addEventListener('click', async () => { if (!confirm('确定清空这台设备上的全部尿酸记录吗？此操作无法撤销。')) return; records = []; selectedId = null; recordsChangedBeforeRestore = true; records = await saveRecords(); els.settingsDialog.close(); render(); showToast('本机记录已清空'); });
+  els.importData.addEventListener('change', async event => { const file = event.target.files[0]; if (!file) return; try { const content = JSON.parse(await file.text()); const imported = Array.isArray(content) ? content : content.records; if (!Array.isArray(imported) || !imported.every(validRecord)) throw new Error('invalid'); const existing = new Map(records.map(record => [record.id, record])); imported.forEach(record => existing.set(record.id || uid(), { id: record.id || uid(), value: Math.round(Number(record.value)), date: new Date(record.date).toISOString(), note: String(record.note || '').slice(0, 80) })); records = [...existing.values()].sort(byDateDesc); records = await saveRecords(); render(); showToast(`已导入 ${imported.length} 条记录`); } catch { showToast('无法识别这个备份文件'); } finally { event.target.value = ''; } });
+  $('#clearData').addEventListener('click', async () => { if (!confirm('确定清空这台设备上的全部尿酸记录吗？此操作无法撤销。')) return; records = []; selectedId = null; records = await saveRecords(); els.settingsDialog.close(); render(); showToast('本机记录已清空'); });
   const colorScheme = window.matchMedia('(prefers-color-scheme: dark)');
   const handleColorSchemeChange = () => { if (getThemePreference() === 'system') applyTheme(); };
   if (colorScheme.addEventListener) colorScheme.addEventListener('change', handleColorSchemeChange);
   else if (colorScheme.addListener) colorScheme.addListener(handleColorSchemeChange);
   if (IS_LOCAL_FILE) {
     els.localFileNotice.classList.remove('hidden');
-    els.offlineStatus.textContent = '请通过网页版本打开';
-  } else if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js?v=11', { updateViaCache: 'none' }).then(registration => { registration.update(); els.offlineStatus.textContent = '已缓存，断网也可使用'; }).catch(() => { els.offlineStatus.textContent = '浏览器未启用离线缓存'; }); else els.offlineStatus.textContent = '当前浏览器不支持离线缓存';
+    els.offlineStatus.textContent = '本地文件模式';
+  } else if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js?v=12', { updateViaCache: 'none' }).then(registration => { registration.update(); els.offlineStatus.textContent = '已缓存，断网也可使用'; }).catch(() => { els.offlineStatus.textContent = '浏览器未启用离线缓存'; }); else els.offlineStatus.textContent = '当前浏览器不支持离线缓存';
   applyTheme();
   render();
   restoreRecords();
