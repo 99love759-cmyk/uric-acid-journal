@@ -1,12 +1,13 @@
 (() => {
   'use strict';
 
-  const STORAGE_KEY = 'personal-uric-acid-records-v1';
+  const STORAGE_KEY = 'personal-uric-acid-records-v2';
+  const LEGACY_STORAGE_KEY = 'personal-uric-acid-records-v1';
   const DATABASE_NAME = 'personal-uric-acid-journal';
   const DATABASE_STORE = 'state';
   const DATABASE_RECORD_KEY = 'records';
   const THEME_KEY = 'personal-uric-acid-theme-v1';
-  const APP_VERSION = 'v13';
+  const APP_VERSION = 'v14';
   const IS_LOCAL_FILE = window.location.protocol === 'file:';
   const LOW_THRESHOLD = 210;
   const HIGH_THRESHOLD = 420;
@@ -37,21 +38,12 @@
 
   function loadRecords() {
     try {
-      const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+      const current = localStorage.getItem(STORAGE_KEY);
+      const parsed = JSON.parse(current === null ? localStorage.getItem(LEGACY_STORAGE_KEY) || '[]' : current);
       return Array.isArray(parsed) ? parsed.filter(validRecord).sort(byDateDesc) : [];
     } catch { return []; }
   }
   function validRecord(record) { return record && Number.isFinite(Number(record.value)) && record.date && !Number.isNaN(new Date(record.date).getTime()); }
-  function normalizeRecords(candidate) {
-    const unique = new Map();
-    (Array.isArray(candidate) ? candidate : []).filter(validRecord).forEach(record => unique.set(record.id || uid(), record));
-    return [...unique.values()].sort(byDateDesc);
-  }
-  function mergeRecords(...collections) {
-    const merged = new Map();
-    collections.forEach(collection => normalizeRecords(collection).forEach(record => merged.set(record.id, record)));
-    return [...merged.values()].sort(byDateDesc);
-  }
   function openDatabase() {
     return new Promise((resolve, reject) => {
       if (!('indexedDB' in window)) { reject(new Error('IndexedDB unavailable')); return; }
@@ -62,16 +54,8 @@
     });
   }
   function completeTransaction(transaction) { return new Promise((resolve, reject) => { transaction.oncomplete = resolve; transaction.onerror = () => reject(transaction.error); transaction.onabort = () => reject(transaction.error); }); }
-  function completeRequest(request) { return new Promise((resolve, reject) => { request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); }); }
-  async function readIndexedRecords() {
-    const database = await openDatabase();
-    const transaction = database.transaction(DATABASE_STORE, 'readonly');
-    const result = await completeRequest(transaction.objectStore(DATABASE_STORE).get(DATABASE_RECORD_KEY));
-    database.close();
-    return Array.isArray(result) ? result.filter(validRecord).sort(byDateDesc) : null;
-  }
   async function saveRecords(candidate = records) {
-    const snapshot = normalizeRecords(candidate);
+    const snapshot = Array.isArray(candidate) ? candidate.slice().sort(byDateDesc) : [];
     const serialized = JSON.stringify(snapshot);
     try {
       localStorage.setItem(STORAGE_KEY, serialized);
@@ -87,16 +71,11 @@
       return snapshot;
     } catch { throw new Error('storage unavailable'); }
   }
-  async function restoreRecords() {
-    // LocalStorage is authoritative. IndexedDB is only read to migrate records from earlier app versions.
-    try {
-      const indexedRecords = await readIndexedRecords();
-      if (indexedRecords && indexedRecords.length) {
-        records = mergeRecords(indexedRecords, records);
-        try { records = await saveRecords(records); } catch { /* Existing in-memory records remain available. */ }
-      }
-    } catch { /* LocalStorage records were already loaded synchronously. */ }
-    render();
+  async function saveNewRecord(record) {
+    const snapshot = [record, ...records.filter(item => item.id !== record.id)].sort(byDateDesc);
+    const saved = await saveRecords(snapshot);
+    if (!saved.some(item => item.id === record.id)) throw new Error('record not persisted');
+    return saved;
   }
   function byDateDesc(a, b) { return new Date(b.date) - new Date(a.date); }
   function uid() { return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`; }
@@ -222,9 +201,7 @@
     const recordId = editingId || uid();
     const nextRecord = { id: recordId, value: Math.round(value), date: date.toISOString(), note: els.noteInput.value.trim() };
     const previousRecords = records;
-    records = editingId ? records.map(record => record.id === recordId ? nextRecord : record) : [nextRecord, ...records];
-    records = normalizeRecords(records);
-    try { records = await saveRecords(records); }
+    try { records = editingId ? await saveRecords(records.map(record => record.id === recordId ? nextRecord : record)) : await saveNewRecord(nextRecord); }
     catch {
       records = previousRecords;
       render();
@@ -250,9 +227,8 @@
   if (IS_LOCAL_FILE) {
     els.localFileNotice.classList.remove('hidden');
     els.offlineStatus.textContent = '本地文件模式';
-  } else if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js?v=13', { updateViaCache: 'none' }).then(registration => { registration.update(); els.offlineStatus.textContent = '已缓存，断网也可使用'; }).catch(() => { els.offlineStatus.textContent = '浏览器未启用离线缓存'; }); else els.offlineStatus.textContent = '当前浏览器不支持离线缓存';
+  } else if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js?v=14', { updateViaCache: 'none' }).then(registration => { registration.update(); els.offlineStatus.textContent = '已缓存，断网也可使用'; }).catch(() => { els.offlineStatus.textContent = '浏览器未启用离线缓存'; }); else els.offlineStatus.textContent = '当前浏览器不支持离线缓存';
   if (els.appVersion) els.appVersion.textContent = APP_VERSION;
   applyTheme();
   render();
-  restoreRecords();
 })();
