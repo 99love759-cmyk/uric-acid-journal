@@ -7,7 +7,7 @@
   const DATABASE_STORE = 'state';
   const DATABASE_RECORD_KEY = 'records';
   const THEME_KEY = 'personal-uric-acid-theme-v1';
-  const APP_VERSION = 'v20';
+  const APP_VERSION = 'v21';
   const IS_LOCAL_FILE = window.location.protocol === 'file:';
   const LOW_THRESHOLD = 210;
   const HIGH_THRESHOLD = 420;
@@ -33,10 +33,6 @@
     document.documentElement.dataset.theme = dark ? 'dark' : 'light';
     const themeColor = $('#themeColor');
     if (themeColor) themeColor.setAttribute('content', dark ? '#000000' : '#f5f5f7');
-    const appleTouchIcon = $('#appleTouchIcon');
-    const siteIcon = $('#siteIcon');
-    if (appleTouchIcon) appleTouchIcon.setAttribute('href', `${dark ? 'icon-dark-180.png' : 'icon-180.png'}?v=20`);
-    if (siteIcon) siteIcon.setAttribute('href', `${dark ? 'icon-dark.svg' : 'icon.svg'}?v=20`);
     if (els.themeSelect) els.themeSelect.value = preference;
   }
 
@@ -251,7 +247,7 @@
   if (IS_LOCAL_FILE) {
     els.localFileNotice.classList.remove('hidden');
     els.offlineStatus.textContent = '本地文件模式';
-  } else if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js?v=20', { updateViaCache: 'none' }).then(registration => { registration.update(); els.offlineStatus.textContent = '已缓存，断网也可使用'; }).catch(() => { els.offlineStatus.textContent = '浏览器未启用离线缓存'; }); else els.offlineStatus.textContent = '当前浏览器不支持离线缓存';
+  } else if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js?v=21', { updateViaCache: 'none' }).then(registration => { registration.update(); els.offlineStatus.textContent = '已缓存，断网也可使用'; }).catch(() => { els.offlineStatus.textContent = '浏览器未启用离线缓存'; }); else els.offlineStatus.textContent = '当前浏览器不支持离线缓存';
   if (els.appVersion) els.appVersion.textContent = APP_VERSION;
   applyTheme();
   render();

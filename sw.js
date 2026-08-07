@@ -1,5 +1,5 @@
-const CACHE = 'uric-acid-v20';
-const ASSETS = ['./', './index.html', './styles.css?v=20', './overrides.css?v=20', './app.js?v=20', './manifest.webmanifest?v=20', './icon.svg?v=20', './icon-dark.svg?v=20', './icon-180.png?v=20', './icon-dark-180.png?v=20', './icon-192.png?v=20', './icon-dark-192.png?v=20', './icon-512.png?v=20', './icon-dark-512.png?v=20'];
+const CACHE = 'uric-acid-v21';
+const ASSETS = ['./', './index.html', './styles.css?v=21', './overrides.css?v=21', './app.js?v=21', './manifest.webmanifest?v=21', './icon.svg?v=21', './icon-180.png?v=21', './icon-192.png?v=21', './icon-512.png?v=21'];
 self.addEventListener('install', event => event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)).then(() => self.skipWaiting())));
 self.addEventListener('activate', event => event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key.startsWith('uric-acid-') && key !== CACHE).map(key => caches.delete(key)))).then(() => self.clients.claim())));
 self.addEventListener('fetch', event => {

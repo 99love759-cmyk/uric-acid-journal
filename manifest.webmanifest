@@ -2,7 +2,7 @@
   "name": "个人尿酸记录",
   "short_name": "尿酸",
   "description": "离线记录与查看个人尿酸趋势",
-  "start_url": "./?app=v20",
+  "start_url": "./?app=v21",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#f5f5f7",
