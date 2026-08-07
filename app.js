@@ -7,7 +7,7 @@
   const DATABASE_STORE = 'state';
   const DATABASE_RECORD_KEY = 'records';
   const THEME_KEY = 'personal-uric-acid-theme-v1';
-  const APP_VERSION = 'v18';
+  const APP_VERSION = 'v19';
   const IS_LOCAL_FILE = window.location.protocol === 'file:';
   const LOW_THRESHOLD = 210;
   const HIGH_THRESHOLD = 420;
@@ -247,7 +247,7 @@
   if (IS_LOCAL_FILE) {
     els.localFileNotice.classList.remove('hidden');
     els.offlineStatus.textContent = '本地文件模式';
-  } else if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js?v=18', { updateViaCache: 'none' }).then(registration => { registration.update(); els.offlineStatus.textContent = '已缓存，断网也可使用'; }).catch(() => { els.offlineStatus.textContent = '浏览器未启用离线缓存'; }); else els.offlineStatus.textContent = '当前浏览器不支持离线缓存';
+  } else if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js?v=19', { updateViaCache: 'none' }).then(registration => { registration.update(); els.offlineStatus.textContent = '已缓存，断网也可使用'; }).catch(() => { els.offlineStatus.textContent = '浏览器未启用离线缓存'; }); else els.offlineStatus.textContent = '当前浏览器不支持离线缓存';
   if (els.appVersion) els.appVersion.textContent = APP_VERSION;
   applyTheme();
   render();
